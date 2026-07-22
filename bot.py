@@ -7,7 +7,7 @@ import datetime
 import json
 import random
 
-TOKEN = "8666764154:AAHGJCuDbgHg7uJb3UYlL04tmlwVZzTrNJs"  # ← توکن جدید از @BotFather
+TOKEN = "8666764154:AAHL3wtaopyeL5jUyEsD4zLeuLeVLUyxPqk"  # ← توکن جدید از @BotFather
 
 CONFIG_FILE = "bot_config.json"
 
