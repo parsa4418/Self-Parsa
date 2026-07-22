@@ -6,6 +6,9 @@ import os
 import random
 import requests
 import pytz
+import asyncio
+import threading
+from aiohttp import web
 
 TOKEN = "8666764154:AAH29o8bOAzmXzvbU428TJ6WLtQQcHWwOTE"  # ← توکن خودت رو از @BotFather بگیر
 
@@ -195,8 +198,30 @@ async def auto_reply(update: Update, context):
         await update.message.reply_text("سلام، فعلاً آفلاینم. آنلاین شدم جواب می‌دم ✅")
         replied_chats.add(update.message.chat_id)
 
+# ================== سرور HTTP برای Render ==================
+async def health_check(request):
+    return web.Response(text="OK", status=200)
+
+async def start_http_server():
+    app = web.Application()
+    app.router.add_get('/health', health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 10000)
+    await site.start()
+    print("✅ HTTP server is running on port 10000")
+    await asyncio.Event().wait()
+
+def run_http_server():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(start_http_server())
+
 # ================== اجرا ==================
 def main():
+    # اجرای سرور HTTP در یک ترد جداگانه
+    threading.Thread(target=run_http_server, daemon=True).start()
+    
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
