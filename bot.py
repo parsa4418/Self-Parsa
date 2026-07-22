@@ -1,7 +1,7 @@
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
-from flask import Flask
-import threading
+from aiohttp import web
+import asyncio
 import os
 import datetime
 import json
@@ -9,15 +9,6 @@ import random
 
 TOKEN = "8666764154:AAHGJCuDbgHg7uJb3UYlL04tmlwVZzTrNJs"  # ← توکن جدید از @BotFather
 
-# ========== فلاسک اپ برای Render ==========
-flask_app = Flask(__name__)
-
-@flask_app.route('/')
-@flask_app.route('/health')
-def health_check():
-    return "OK", 200
-
-# ========== ربات تلگرام ==========
 CONFIG_FILE = "bot_config.json"
 
 def load_config():
@@ -34,6 +25,7 @@ config = load_config()
 is_secretary_on = config.get('is_secretary_on', False)
 replied_chats = set()
 
+# ================== هندلرهای ربات ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🤖 **ربات منشی حرفه‌ای**\n\n"
@@ -85,7 +77,8 @@ async def auto_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("سلام، فعلاً آفلاینم. آنلاین شدم جواب می‌دم ✅")
         replied_chats.add(chat_id)
 
-def run_bot():
+# ================== راه‌اندازی ربات ==================
+def create_bot_app():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("secretary_on", secretary_on))
@@ -95,16 +88,38 @@ def run_bot():
     app.add_handler(CommandHandler("date", get_date))
     app.add_handler(CommandHandler("music", get_music))
     app.add_handler(MessageHandler(filters.ALL, auto_reply))
+    return app
+
+# ================== سرور aiohttp برای Render ==================
+async def health_check(request):
+    return web.Response(text="OK", status=200)
+
+async def start_http_server():
+    app = web.Application()
+    app.router.add_get('/', health_check)
+    app.router.add_get('/health', health_check)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    print(f"✅ HTTP server running on port {port}")
+    # تا ابد منتظر بمون
+    await asyncio.Event().wait()
+
+# ================== اجرای همزمان ==================
+async def main():
+    # راه‌اندازی ربات در پس‌زمینه
+    bot_app = create_bot_app()
+    await bot_app.initialize()
+    await bot_app.start()
     
+    # شروع Polling ربات (بدون بلاک کردن)
+    asyncio.create_task(bot_app.updater.start_polling())
     print("✅ ربات منشی روشن شد!")
-    app.run_polling(drop_pending_updates=True)
+    
+    # راه‌اندازی سرور HTTP
+    await start_http_server()
 
 if __name__ == "__main__":
-    # ====== اجرای ربات در یک ترد جداگانه ======
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
-    
-    # ====== اجرای سرور Flask برای Render ======
-    port = int(os.environ.get("PORT", 10000))
-    print(f"✅ Flask server running on port {port}")
-    flask_app.run(host="0.0.0.0", port=port)
+    asyncio.run(main())
