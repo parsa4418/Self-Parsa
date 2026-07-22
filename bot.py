@@ -131,9 +131,14 @@ async def button_handler(update: Update, context):
     elif data == "back":
         await query.edit_message_text("🤖 **منوی اصلی**", reply_markup=main_menu())
 
-# ================== دستورات متنی ==================
+# ================== دستورات متنی (با چک کردن وجود message) ==================
 async def text_commands(update: Update, context):
     global is_secretary_on, is_time_on
+    
+    # چک میکنه که پیام وجود داره
+    if not update.message:
+        return
+    
     text = update.message.text.strip()
 
     if text == ".منشی روشن":
@@ -172,7 +177,7 @@ async def text_commands(update: Update, context):
 
     elif text == ".تاریخ":
         now = datetime.datetime.now()
-        shamsi = now.strftime("%Y/%m/%d")  # قابل تبدیل به شمسی با کتابخونه
+        shamsi = now.strftime("%Y/%m/%d")
         await update.message.reply_text(f"📅 تاریخ امروز: {shamsi}")
 
     elif text == ".ساعت":
@@ -194,6 +199,8 @@ async def text_commands(update: Update, context):
 
 # ================== پاسخ خودکار ==================
 async def auto_reply(update: Update, context):
+    if not update.message:
+        return
     if is_secretary_on and update.message.chat_id not in replied_chats:
         await update.message.reply_text("سلام، فعلاً آفلاینم. آنلاین شدم جواب می‌دم ✅")
         replied_chats.add(update.message.chat_id)
@@ -229,7 +236,9 @@ def main():
     app.add_handler(MessageHandler(filters.ALL, auto_reply))
 
     print("✅ ربات کامل با همه قابلیت‌ها روشن شد!")
-    app.run_polling()
+    
+    # drop_pending_updates=True برای جلوگیری از Conflict
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
